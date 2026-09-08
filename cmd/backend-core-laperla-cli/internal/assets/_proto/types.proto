@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package services.__pkg__.__version__;
+
+// For validations rules, check the https://github.com/bufbuild/protovalidate repo
+import "buf/validate/validate.proto";
+
+message PingRequest {
+  string text = 1 [(buf.validate.field).required = true];
+}
+
+message PingResponse {
+  string pong = 1;
+}

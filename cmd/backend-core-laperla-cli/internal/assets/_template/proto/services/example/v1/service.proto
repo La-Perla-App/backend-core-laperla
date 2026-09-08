@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package services.example.v1;
+
+import "google/api/annotations.proto";
+import "services/example/v1/types.proto";
+
+service ExampleService {
+  rpc Ping(PingRequest) returns (PingResponse) {
+    option (google.api.http) = {
+      post: "/api/example/v1/ping"
+      body: "*"
+    };
+  }
+}
