@@ -8,6 +8,10 @@ import (
 )
 
 // Cache define la interfaz para un almacén de caché.
+//
+// Redis Cluster: operaciones multi-key (Del, MGet, MSet, Eval, Pipeline)
+// solo son válidas si todas las keys hashean al mismo slot. Usa HashTag /
+// ClusterKey para colocalizar keys relacionadas. No uses Keys() en cluster.
 type Cache interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key string, value any, expiration time.Duration) error
@@ -17,15 +21,19 @@ type Cache interface {
 	Del(ctx context.Context, keys ...string) error
 	Incrby(ctx context.Context, key string, increment int64) (int64, error)
 	Decrby(ctx context.Context, key string, decrement int64) (int64, error)
+	IncrExpire(ctx context.Context, key string, expiration time.Duration) (int64, error)
+	Expire(ctx context.Context, key string, expiration time.Duration) error
+	TTL(ctx context.Context, key string) (time.Duration, error)
+	Exists(ctx context.Context, keys ...string) (int64, error)
 	Keys(ctx context.Context, pattern string) ([]string, error)
 	Ping(ctx context.Context) error
 	Close() error
 	SAdd(ctx context.Context, key string, members ...any) error
 	SRem(ctx context.Context, key string, members ...any) error
 	SMembers(ctx context.Context, key string) ([]string, error)
-	Eval(ctx context.Context, script string, keys []string, args ...any) (any, error) // New method
+	Eval(ctx context.Context, script string, keys []string, args ...any) (any, error)
 
-	// New methods for batch operations and pipelining
+	// MGet/MSet/Pipeline: todas las keys deben compartir slot (mismo hash tag).
 	MGet(ctx context.Context, keys ...string) ([]any, error)
 	MSet(ctx context.Context, pairs ...any) error
 	NewPipeline() Pipeline

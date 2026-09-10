@@ -173,9 +173,39 @@ func MSet(ctx context.Context, pairs ...any) error {
 }
 
 // NewPipeline crea un nuevo pipeline para ejecutar múltiples comandos en un solo viaje de red.
+// En cluster, todos los comandos del pipeline deben usar keys del mismo slot.
 func NewPipeline() Pipeline {
 	if cacheClient == nil {
 		return nil
 	}
 	return cacheClient.NewPipeline()
+}
+
+func Expire(ctx context.Context, key string, expiration time.Duration) error {
+	if cacheClient == nil {
+		return ErrProviderNotInitialized
+	}
+	return cacheClient.Expire(ctx, key, expiration)
+}
+
+func TTL(ctx context.Context, key string) (time.Duration, error) {
+	if cacheClient == nil {
+		return 0, ErrProviderNotInitialized
+	}
+	return cacheClient.TTL(ctx, key)
+}
+
+func Exists(ctx context.Context, keys ...string) (int64, error) {
+	if cacheClient == nil {
+		return 0, ErrProviderNotInitialized
+	}
+	return cacheClient.Exists(ctx, keys...)
+}
+
+// IncrExpire incrementa y pone TTL solo en el primer hit (un key, cluster-safe).
+func IncrExpire(ctx context.Context, key string, expiration time.Duration) (int64, error) {
+	if cacheClient == nil {
+		return 0, ErrProviderNotInitialized
+	}
+	return cacheClient.IncrExpire(ctx, key, expiration)
 }

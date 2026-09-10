@@ -152,11 +152,47 @@ func (r *redisCache) HashSet(ctx context.Context, key, field string, value any, 
 	if err := r.client.HSet(ctx, key, field, value).Err(); err != nil {
 		return err
 	}
-	if expiration == 0 {
-		r.client.Expire(ctx, key, expiration)
+	if expiration > 0 {
+		return r.client.Expire(ctx, key, expiration).Err()
 	}
 	return nil
 }
+
+func (r *redisCache) Expire(ctx context.Context, key string, expiration time.Duration) error {
+	return r.client.Expire(ctx, key, expiration).Err()
+}
+
+func (r *redisCache) TTL(ctx context.Context, key string) (time.Duration, error) {
+	return r.client.TTL(ctx, key).Result()
+}
+
+func (r *redisCache) Exists(ctx context.Context, keys ...string) (int64, error) {
+	return r.client.Exists(ctx, keys...).Result()
+}
+
+// IncrExpire INCR + PEXPIRE on first increment. Single key → cluster-safe.
+func (r *redisCache) IncrExpire(ctx context.Context, key string, expiration time.Duration) (int64, error) {
+	if expiration <= 0 {
+		return r.Incrby(ctx, key, 1)
+	}
+	ms := expiration.Milliseconds()
+	if ms < 1 {
+		ms = 1
+	}
+	n, err := r.client.Eval(ctx, incrExpireScript, []string{key}, ms).Int64()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	return n, err
+}
+
+const incrExpireScript = `
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return n
+`
 
 func (r *redisCache) HashGet(ctx context.Context, key, field string) (string, error) {
 	return r.client.HGet(ctx, key, field).Result()

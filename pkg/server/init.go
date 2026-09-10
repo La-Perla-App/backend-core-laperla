@@ -34,19 +34,17 @@ func InitEnvironment() {
 }
 
 func InitRedis() {
-	var addrs []string
-	addrsAny := config.Get("cache.redis.addrs")
-	if addrsAny, ok := addrsAny.([]any); ok {
-		for _, addr := range addrsAny {
-			if addr, ok := addr.(string); ok {
-				addrs = append(addrs, addr)
-			}
+	addrs := config.GetArrayStrings("cache.redis.addrs")
+	if len(addrs) == 0 {
+		if env := os.Getenv("REDIS_ADDR"); env != "" {
+			addrs = []string{env}
 		}
 	}
 	if err := cache.Init(cache.Config{
 		Addrs:     addrs,
 		Password:  config.GetString("cache.redis.password"),
 		IsCluster: config.GetBool("cache.redis.isCluster"),
+		DB:        config.GetInt("cache.redis.db"),
 	}); err != nil {
 		log.Fatal("ERROR connecting to cache: ", err)
 	}
