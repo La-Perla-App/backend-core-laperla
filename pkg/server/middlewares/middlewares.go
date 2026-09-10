@@ -31,6 +31,13 @@ func ApplyTranscoderMiddlewares(gatewayPrefixes []string) (Middleware, error) {
 		handler := func(w http.ResponseWriter, r *http.Request) {
 			handlerFn := next
 
+			// Probes de k8s: no pasar por GeneralParams / AUTH WARN.
+			switch r.URL.Path {
+			case "/health", "/healthz", "/readyz":
+				handlerFn.ServeHTTP(w, r)
+				return
+			}
+
 			if isConnectRPCRequest(r) {
 				handlerFn.ServeHTTP(w, r)
 				return

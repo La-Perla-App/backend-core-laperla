@@ -89,12 +89,9 @@ func (server Server) Listen(addr string) error {
 		}
 	}
 
-	server.mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Ok"))
-	})
+	// Antes del catch-all /* de Vanguard: si no existen, /healthz y /readyz
+	// caen en los middlewares de API (AUTH WARN) y responden 404.
+	registerHealthRoutes(server.mux)
 
 	server.mux.Group(func(r chi.Router) {
 		RegisterServicesHandlers(r, server.registerServiceFns, server.gatewayPrefixes)

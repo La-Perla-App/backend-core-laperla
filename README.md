@@ -292,7 +292,9 @@ func main() {
 
 ## Rutas Automáticas
 
-- `/health` - Health check
+- `/health` - Health check (compat)
+- `/healthz` - Liveness (Helm / Kubernetes)
+- `/readyz` - Readiness (Helm / Kubernetes)
 - `/api/<service>/debug` - Profiling (development only)
 - `/api/<service>/swagger` - Swagger UI (development only)
 - `/api/<service>/protos_download` - Descargar protos (development only)
