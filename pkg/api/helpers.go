@@ -151,7 +151,7 @@ func generalParamsFromHTTPRequest(headers http.Header) GeneralParams {
 	}
 
 	params := GeneralParams{
-		IANATimezone: "America/Panama",
+		IANATimezone: "America/Caracas",
 	}
 
 	params.Lang = SupportedLanguages[0]
