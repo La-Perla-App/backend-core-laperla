@@ -5,7 +5,9 @@ package services.example.v1;
 import "google/api/annotations.proto";
 import "services/example/v1/types.proto";
 
+// Servicio de ejemplo. Documenta cada RPC: el comentario pasa a OpenAPI y al cliente.
 service ExampleService {
+  // Health trivial del servicio. Público.
   rpc Ping(PingRequest) returns (PingResponse) {
     option (google.api.http) = {
       post: "/api/example/v1/ping"

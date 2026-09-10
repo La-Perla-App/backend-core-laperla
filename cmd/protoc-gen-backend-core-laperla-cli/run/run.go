@@ -46,6 +46,7 @@ type MethodTemplate struct {
 	PrefixWithServiceName bool
 	Deprecated            bool
 	HasGateway            bool
+	Comments              string
 }
 
 type TemplateData struct {
@@ -162,6 +163,7 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, service *protoge
 			PrefixWithServiceName: prefixWithServiceName,
 			Deprecated:            deprecated,
 			HasGateway:            hasGateway,
+			Comments:              strings.TrimSpace(method.Comments.Leading.String()),
 		})
 		methodsMap[methodName] = struct{}{}
 	}

@@ -45,9 +45,13 @@ func Get{{.ServiceName}}Client(ctx {{ call .GetIdent "context" "Context"}}) {{ c
 }
 
 {{ range .Methods }}
+{{- if .Comments }}
+{{ .Comments }}
+{{- else }}
 // Do a remote call for `{{$.ProtoPackage}}.{{$.ServiceName}}@{{.MethodName}}({{.RequestType}}) -> {{.ResponseType}}`
+{{- end }}
 {{- if .HasGateway }}
-// This method requires a `api.GeneralParams` argument
+// Requires api.GeneralParams (token, locale, platform, destination).
 {{- end }}
 {{- if .Deprecated }}
 //
