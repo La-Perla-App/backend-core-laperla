@@ -51,15 +51,7 @@ func InitRedis() {
 }
 
 func InitNats() {
-	var addrs []string
-	addrsAny := config.Get("nats.addrs")
-	if addrsAny, ok := addrsAny.([]any); ok {
-		for _, addr := range addrsAny {
-			if addr, ok := addr.(string); ok {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
+	addrs := config.GetArrayStrings("nats.addrs")
 	natsmanager.Connect(natsmanager.Config{
 		URLs:     addrs,
 		Logger:   slog.Default(),
