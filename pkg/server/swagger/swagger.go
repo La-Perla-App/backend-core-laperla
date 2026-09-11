@@ -39,7 +39,7 @@ func RegisterSwaggerAssets(prefix string, openAPISchema []byte, r chi.Router) {
 // findMappingValue es una función auxiliar para encontrar un nodo de valor
 // dado un nodo de mapeo (un objeto) y una clave.
 func findMappingValue(node *yaml.Node, key string) *yaml.Node {
-	if node.Kind != yaml.MappingNode {
+	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}
 	for i := 0; i < len(node.Content); i += 2 {
@@ -122,8 +122,15 @@ properties:
 			}
 
 			// Navegar hasta el schema: content -> application/json -> schema
+			// (HttpBody / image/* no tienen application/json: no envolver.)
 			contentNode := findMappingValue(response200Node, "content")
+			if contentNode == nil {
+				continue
+			}
 			appJSONNode := findMappingValue(contentNode, "application/json")
+			if appJSONNode == nil {
+				continue
+			}
 			schemaRefNode := findMappingValue(appJSONNode, "schema")
 			if schemaRefNode == nil {
 				continue
