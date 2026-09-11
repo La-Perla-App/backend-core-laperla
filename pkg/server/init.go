@@ -99,8 +99,12 @@ func InitOpenSearch() {
 
 func InitMinio() {
 	cfg := minio.ConfigFromContext(context.Background())
+	if !cfg.Configured() {
+		log.Println("object store not configured; skipping InitMinio")
+		return
+	}
 	if err := minio.Init(cfg); err != nil {
-		log.Fatal("ERROR initializing MinIO: ", err)
+		log.Fatal("ERROR initializing object store: ", err)
 	}
 }
 

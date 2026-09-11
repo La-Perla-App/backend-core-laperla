@@ -55,3 +55,29 @@ func MergeYAML(yamlBytes []byte) error {
 	}
 	return MergeMap(overlayDoc.AsMap())
 }
+
+// ReplaceYAML replaces the process-wide config singleton (no deep-merge).
+// Useful in tests to avoid leftover keys from prior MergeYAML overlays.
+func ReplaceYAML(yamlBytes []byte) error {
+	if err := ValidateConfiguratorRegister(); err != nil {
+		return err
+	}
+	if len(yamlBytes) == 0 {
+		yamlBytes = []byte("{}")
+	}
+	doc, err := jsonparser.OpenYAMLBytes(yamlBytes)
+	if err != nil {
+		return fmt.Errorf("parse config yaml: %w", err)
+	}
+	root := doc.AsMap()
+	if root == nil {
+		root = map[string]any{}
+	}
+	if tjson == nil {
+		tjson, err = jsonparser.OpenFromBytes([]byte("{}"))
+		if err != nil {
+			return err
+		}
+	}
+	return tjson.ReplaceMap(root)
+}

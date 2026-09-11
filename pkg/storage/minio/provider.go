@@ -12,18 +12,22 @@ import (
 var (
 	singleton         *Client
 	once              sync.Once
-	ErrNotInitialized = errors.New("minio provider no inicializado")
+	ErrNotInitialized = errors.New("object store provider no inicializado")
 )
 
 // Init stores an optional process-wide client. Prefer FromContext for request work.
+// If endpoint/credentials are missing, Init is a no-op (services without storage stay up).
 func Init(cfg Config) (err error) {
+	if !cfg.Configured() {
+		slog.Default().Info("object store not configured; skipping Init")
+		return nil
+	}
 	once.Do(func() {
 		singleton, err = NewClient(cfg)
 		if err != nil {
-			err = fmt.Errorf("fallo al inicializar el cliente de MinIO: %w", err)
+			err = fmt.Errorf("object store init: %w", err)
 			return
 		}
-		slog.Default().Info("MinIO boot client initialized", "endpoint", cfg.Endpoint)
 	})
 	return err
 }
@@ -70,8 +74,5 @@ func ObjectURL(bucket, key string) string {
 
 // Get returns the optional boot-time singleton. Prefer FromContext.
 func Get() *Client {
-	if singleton == nil {
-		return nil
-	}
 	return singleton
 }

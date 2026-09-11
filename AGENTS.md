@@ -15,6 +15,7 @@ Librería compartida de los backends Go de La Perla. **No es un microservicio de
 - **InitRedis:** `cache.redis.addrs` o `REDIS_ADDR`. `isCluster` / `db` desde config.
 - **Auth JWT:** cookie `laperla-access-token`. Sin `tenant_id` en `SessionData`.
 - **Sin tenant** en APIs nuevas. Multi-destino es `destination_id` en los servicios de producto.
+- **Object store (`pkg/storage/minio`):** MinIO **y** AWS S3 vía el mismo cliente (`minio-go`). Config `storage.*` o legacy `minio.*`. Firmadas: `PresignedPut` / `PresignedGet`. Dos clientes solo si `publicHost` ≠ `endpoint` (MinIO cluster vs Ingress); en S3 suele bastar uno.
 - Tag/release: los servicios consumen un **módulo publicado** (`v0.1.0+`). No asumas `replace` en repos remotos.
 - Humo Redis (Telepresence): `go test -tags smoke ./pkg/cache/`
 - No commitees secretos. Commits: La Perla, no marcas ajenas.

@@ -8,7 +8,7 @@ import (
 )
 
 func TestConfigFromContext_UsesViewOverlay(t *testing.T) {
-	if err := config.MergeYAML([]byte(`
+	if err := config.ReplaceYAML([]byte(`
 minio:
   endpoint: minio.minio-system:9000
   accessKey: base-key
@@ -16,6 +16,7 @@ minio:
   useSsl: false
   publicHost: s3.example.com
   publicUseSsl: true
+  defaultBucket: laperla-dev
 `)); err != nil {
 		t.Fatal(err)
 	}
@@ -45,10 +46,37 @@ minio:
 	if !cfg.PublicSSL {
 		t.Fatal("publicUseSsl should fall through from base")
 	}
+	if cfg.DefaultBucket != "laperla-dev" {
+		t.Fatalf("defaultBucket: got %q", cfg.DefaultBucket)
+	}
+}
+
+func TestConfigFromContext_StorageAliasAndS3(t *testing.T) {
+	if err := config.ReplaceYAML([]byte(`
+storage:
+  provider: s3
+  region: us-east-1
+  accessKey: AKIATEST
+  secretKey: secret
+  useSsl: true
+  defaultBucket: laperla-dev
+`)); err != nil {
+		t.Fatal(err)
+	}
+	cfg := normalizeConfig(ConfigFromContext(context.Background()))
+	if resolveProvider(cfg) != ProviderS3 {
+		t.Fatalf("provider: %+v", cfg)
+	}
+	if cfg.Endpoint == "" {
+		t.Fatal("expected default S3 endpoint")
+	}
+	if cfg.DefaultBucket != "laperla-dev" {
+		t.Fatalf("bucket %q", cfg.DefaultBucket)
+	}
 }
 
 func TestConfigFromContext_FallsBackToProcessConfig(t *testing.T) {
-	if err := config.MergeYAML([]byte(`
+	if err := config.ReplaceYAML([]byte(`
 minio:
   endpoint: minio.minio-system:9000
   accessKey: base-key
@@ -64,5 +92,17 @@ minio:
 	}
 	if !cfg.UseSSL {
 		t.Fatal("useSsl expected true")
+	}
+}
+
+func TestResolveProvider(t *testing.T) {
+	if got := resolveProvider(Config{Endpoint: "s3.us-east-1.amazonaws.com"}); got != ProviderS3 {
+		t.Fatalf("got %s", got)
+	}
+	if got := resolveProvider(Config{Endpoint: "minio.minio-system:9000"}); got != ProviderMinIO {
+		t.Fatalf("got %s", got)
+	}
+	if got := resolveProvider(Config{Provider: "s3", Endpoint: "custom.example"}); got != ProviderS3 {
+		t.Fatalf("got %s", got)
 	}
 }

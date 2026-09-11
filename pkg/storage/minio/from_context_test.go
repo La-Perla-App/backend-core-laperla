@@ -8,7 +8,7 @@ import (
 )
 
 func TestFromContext_BuildsClientFromView(t *testing.T) {
-	if err := config.MergeYAML([]byte(`
+	if err := config.ReplaceYAML([]byte(`
 minio:
   endpoint: minio.minio-system:9000
   accessKey: base-key
@@ -44,7 +44,7 @@ minio:
 }
 
 func TestFromContext_RequiresEndpoint(t *testing.T) {
-	if err := config.MergeYAML([]byte(`minio: {}`)); err != nil {
+	if err := config.ReplaceYAML([]byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	_, err := FromContext(context.Background())
