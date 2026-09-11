@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 
 	natsmanager "github.com/La-Perla-App/backend-core-laperla/pkg/broker/nats"
 	"github.com/La-Perla-App/backend-core-laperla/pkg/cache"
 	"github.com/La-Perla-App/backend-core-laperla/pkg/config"
+	"github.com/La-Perla-App/backend-core-laperla/pkg/search"
 	"github.com/La-Perla-App/backend-core-laperla/pkg/storage/minio"
 )
 
@@ -62,6 +64,39 @@ func InitNats() {
 	})
 }
 
+func InitOpenSearch() {
+	addrs := config.GetArrayStrings("opensearch.addrs")
+	if len(addrs) == 0 {
+		if u := strings.TrimSpace(config.GetString("opensearch.url")); u != "" {
+			addrs = []string{u}
+		} else if env := os.Getenv("OPENSEARCH_URL"); env != "" {
+			addrs = []string{env}
+		}
+	}
+	user := config.GetString("opensearch.user")
+	if user == "" {
+		user = os.Getenv("OPENSEARCH_USER")
+	}
+	pass := config.GetString("opensearch.password")
+	if pass == "" {
+		pass = os.Getenv("OPENSEARCH_PASSWORD")
+	}
+	skipVerify := config.GetBool("opensearch.insecureSkipVerify")
+	if !skipVerify {
+		if v := strings.ToLower(os.Getenv("OPENSEARCH_INSECURE_SKIP_VERIFY")); v == "1" || v == "true" {
+			skipVerify = true
+		}
+	}
+	if err := search.Init(search.Config{
+		Addresses:          addrs,
+		Username:           user,
+		Password:           pass,
+		InsecureSkipVerify: skipVerify,
+	}); err != nil {
+		log.Fatal("ERROR connecting to OpenSearch: ", err)
+	}
+}
+
 func InitMinio() {
 	cfg := minio.ConfigFromContext(context.Background())
 	if err := minio.Init(cfg); err != nil {
@@ -71,6 +106,7 @@ func InitMinio() {
 
 func CloseEnvironment() {
 	cache.Close()
+	_ = search.Close()
 	if nats, err := natsmanager.Get(); err == nil {
 		nats.Close()
 	}
