@@ -204,7 +204,8 @@ func (m *Manager) AddFanOutTaskWorker(
 	consumerConfig := jetstream.ConsumerConfig{
 		Durable:       durableName,                 // OBLIGATORIO: Define el estado compartido para la tarea.
 		AckPolicy:     jetstream.AckExplicitPolicy, // OBLIGATORIO: Requiere Ack explícito para avanzar el puntero.
-		DeliverPolicy: jetstream.DeliverNewPolicy,  // Empezar con mensajes nuevos.
+		// WorkQueue streams require DeliverAll; DeliverNew is rejected (err 10101).
+		DeliverPolicy: jetstream.DeliverAllPolicy,
 		FilterSubject: subject,
 		MaxDeliver:    2, // Permite 1 reintento si la primera réplica muere antes del Ack.
 
