@@ -26,6 +26,7 @@ var (
     "properties": {
       "id": {"type": "keyword"},
       "destination_id": {"type": "keyword"},
+      "destination_ids": {"type": "keyword"},
       "slug": {"type": "keyword", "fields": {"text": {"type": "text"}}},
       "name": {
         "properties": {

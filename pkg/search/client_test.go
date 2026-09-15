@@ -23,14 +23,21 @@ func TestBuildSearchBody_TermsAndText(t *testing.T) {
 	s := string(raw)
 	for _, want := range []string{
 		`"destination_id"`,
+		`"destination_id.keyword"`,
 		`"status"`,
+		`"status.keyword"`,
 		`"is_featured"`,
 		`"multi_match"`,
 		"café",
 		`"name.keyword"`,
+		`"minimum_should_match"`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("body missing %s: %s", want, s)
 		}
+	}
+	// Booleans stay as plain term (no .keyword dual).
+	if strings.Count(s, `"is_featured"`) != 1 {
+		t.Fatalf("expected single is_featured term: %s", s)
 	}
 }

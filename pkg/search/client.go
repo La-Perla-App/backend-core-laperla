@@ -156,13 +156,13 @@ func buildSearchBody(req Query) ([]byte, error) {
 	if text != "" {
 		fields := req.TextFields
 		if len(fields) == 0 {
-			fields = []string{"name^3", "name.es^3", "name.en^3", "slug^2", "tags", "description.es", "description.en", "address", "title"}
+			fields = []string{"name^3", "name.es^3", "name.en^3", "slug.text^2", "slug^2", "tags", "description.es", "description.en", "address", "title"}
 		}
 		must = append(must, map[string]any{
 			"multi_match": map[string]any{
-				"query":  text,
-				"fields": fields,
-				"type":   "best_fields",
+				"query":    text,
+				"fields":   fields,
+				"type":     "best_fields",
 				"operator": "and",
 			},
 		})
@@ -177,12 +177,22 @@ func buildSearchBody(req Query) ([]byte, error) {
 		if s, ok := v.(string); ok && strings.TrimSpace(s) == "" {
 			continue
 		}
+		// String IDs may be keyword (correct mapping) or text+keyword
+		// (dynamic mapping). Match either so term filters keep working.
+		if _, ok := v.(string); ok && !strings.Contains(k, ".") {
+			filter = append(filter, termOrKeyword(k, v))
+			continue
+		}
 		filter = append(filter, map[string]any{
 			"term": map[string]any{k: v},
 		})
 	}
 	for k, vals := range req.TermsAny {
 		if len(vals) == 0 {
+			continue
+		}
+		if allStrings(vals) && !strings.Contains(k, ".") {
+			filter = append(filter, termsOrKeyword(k, vals))
 			continue
 		}
 		filter = append(filter, map[string]any{
@@ -225,4 +235,39 @@ func buildSearchBody(req Query) ([]byte, error) {
 	}
 
 	return json.Marshal(body)
+}
+
+// termOrKeyword matches a string on field (keyword mapping) or field.keyword
+// (dynamic text mapping). Without this, UUID filters silently return 0 hits.
+func termOrKeyword(field string, value any) map[string]any {
+	return map[string]any{
+		"bool": map[string]any{
+			"should": []map[string]any{
+				{"term": map[string]any{field: value}},
+				{"term": map[string]any{field + ".keyword": value}},
+			},
+			"minimum_should_match": 1,
+		},
+	}
+}
+
+func termsOrKeyword(field string, values []any) map[string]any {
+	return map[string]any{
+		"bool": map[string]any{
+			"should": []map[string]any{
+				{"terms": map[string]any{field: values}},
+				{"terms": map[string]any{field + ".keyword": values}},
+			},
+			"minimum_should_match": 1,
+		},
+	}
+}
+
+func allStrings(vals []any) bool {
+	for _, v := range vals {
+		if _, ok := v.(string); !ok {
+			return false
+		}
+	}
+	return true
 }
