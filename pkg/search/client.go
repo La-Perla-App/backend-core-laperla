@@ -64,13 +64,21 @@ func (c *clientImpl) Ping(ctx context.Context) error {
 func (c *clientImpl) EnsureIndex(ctx context.Context, index string, mapping json.RawMessage) error {
 	exists, err := c.api.Indices.Exists(ctx, opensearchapi.IndicesExistsReq{Indices: []string{index}})
 	if err != nil {
-		return fmt.Errorf("opensearch exists %s: %w", index, err)
-	}
-	if exists != nil && exists.Body != nil {
-		defer exists.Body.Close()
-	}
-	if exists != nil && exists.StatusCode == http.StatusOK {
-		return nil
+		// HEAD 404 returns empty body; opensearch-go v4 ParseError fails with
+		// "failed to json unmarshal body, status: 404". That means "missing".
+		if !isIndexMissingErr(err) {
+			return fmt.Errorf("opensearch exists %s: %w", index, err)
+		}
+	} else {
+		if exists != nil && exists.Body != nil {
+			defer exists.Body.Close()
+		}
+		if exists != nil && exists.StatusCode == http.StatusOK {
+			return nil
+		}
+		if exists != nil && exists.StatusCode != http.StatusNotFound && exists.StatusCode != 0 {
+			return fmt.Errorf("opensearch exists %s: unexpected status %d", index, exists.StatusCode)
+		}
 	}
 	var body io.Reader
 	if len(mapping) > 0 {
@@ -88,6 +96,16 @@ func (c *clientImpl) EnsureIndex(ctx context.Context, index string, mapping json
 		return fmt.Errorf("opensearch create %s: %w", index, err)
 	}
 	return nil
+}
+
+func isIndexMissingErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "status: 404") ||
+		strings.Contains(s, "index_not_found_exception") ||
+		(strings.Contains(s, "404") && strings.Contains(s, "failed to json unmarshal body"))
 }
 
 func (c *clientImpl) Index(ctx context.Context, index, id string, doc any) error {
