@@ -161,8 +161,17 @@ func (m *Manager) Close() {
 	}
 }
 
+// AddWorker suscribe un consumidor duradero. El callback devuelve false para
+// pedir que el mensaje se reentregue.
+//
+// Esa reentrega **espera**: el retraso sale de `consumerConfig.BackOff` y, si
+// el consumidor no lo declara, de DefaultRetryBackoff. Antes se hacía `Nak()` a
+// secas, que reentrega al instante y quemaba todos los MaxDeliver en segundos
+// mientras la dependencia caída seguía caída. Para recuperar aquel
+// comportamiento, `BackOff: []time.Duration{0}`.
 func (m *Manager) AddWorker(subject, streamName string, callback func(msg jetstream.Msg) bool, consumerConfig jetstream.ConsumerConfig) (jetstream.ConsumeContext, error) {
 	consumerConfig.FilterSubject = subject
+	backoff := consumerConfig.BackOff
 
 	// Create or update the consumer
 	cons, err := m.js.CreateOrUpdateConsumer(context.Background(), streamName, consumerConfig)
@@ -173,9 +182,13 @@ func (m *Manager) AddWorker(subject, streamName string, callback func(msg jetstr
 	consumeCtx, err := cons.Consume(func(msg jetstream.Msg) {
 		if callback != nil {
 			if !callback(msg) {
-				// If callback returns false, it means the message was not successfully delivered to the client stream.
-				// Nak the message to request redelivery.
-				msg.Nak()
+				// El callback no pudo procesarlo: se reentrega más tarde, dando
+				// tiempo a que lo que falló se recupere.
+				delay := retryDelayForMsg(backoff, msg)
+				if err := msg.NakWithDelay(delay); err != nil {
+					m.config.Logger.Warn("failed to nak message",
+						"error", err, "subject", msg.Subject(), "delay", delay)
+				}
 				return
 			}
 		}
@@ -202,8 +215,8 @@ func (m *Manager) AddFanOutTaskWorker(
 ) (jetstream.ConsumeContext, error) {
 	// 1. Configuración del Consumidor para Tarea Única (Task)
 	consumerConfig := jetstream.ConsumerConfig{
-		Durable:       durableName,                 // OBLIGATORIO: Define el estado compartido para la tarea.
-		AckPolicy:     jetstream.AckExplicitPolicy, // OBLIGATORIO: Requiere Ack explícito para avanzar el puntero.
+		Durable:   durableName,                 // OBLIGATORIO: Define el estado compartido para la tarea.
+		AckPolicy: jetstream.AckExplicitPolicy, // OBLIGATORIO: Requiere Ack explícito para avanzar el puntero.
 		// WorkQueue streams require DeliverAll; DeliverNew is rejected (err 10101).
 		DeliverPolicy: jetstream.DeliverAllPolicy,
 		FilterSubject: subject,
