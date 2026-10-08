@@ -22,6 +22,45 @@ Librería compartida de los backends Go de La Perla. **No es un microservicio de
 - Humo NATS (Telepresence): `SMOKE_NATS_URL=… go test -tags smoke ./pkg/broker/nats/` — crea y borra su propio stream; comprueba que una reentrega espera.
 - No commitees secretos. Commits: La Perla, no marcas ajenas.
 
+## Connect v1, y por qué todavía no v2
+
+**El plugin `buf.build/connectrpc/go` va fijado a `v1.18.1` en los nueve
+repos de servicio.** Sin el pin, el remoto genera para
+`connectrpc.com/connect/v2` y nada compila. No lo quites sin leer esto.
+
+v2 no es un renombrado, es otra arquitectura:
+
+| | v1 (lo que usamos) | v2 |
+|---|---|---|
+| Registrar | `NewXHandler(svc, opts) → (string, http.Handler)` | `RegisterXHandler(*connect.Server, svc)` |
+| Firma del RPC | `func(ctx, *connect.Request[T]) (*connect.Response[R], error)` | `func(ctx, *T) (*R, error)` |
+| Servir | un `http.Handler` por servicio | `connecthttp.Mount(mux, server)` |
+
+El paquete `connectrpc.com/connect/v2` **no tiene** `Request`, `Response` ni
+`Handler`: es sólo cliente y transporte.
+
+**Lo que bloquea la migración es `pkg/server/services.go`.** Ahí se monta un
+transcodificador de vanguard sobre todos los servicios, y de él sale la
+superficie REST entera (`/api/auth`, `/api/directory`, `/api/benefits`…), la
+que publica el Ingress y consume la app. Vanguard necesita **un `http.Handler`
+por servicio**, y en v2 eso no existe. Vanguard se quedó en **v0.4.0**: no hay
+v2 ni prerelease, y connect v2 no trae transcodificación REST propia — no
+entiende `google.api.http`. Migrar hoy deja los `/api/...` en 404 sin
+sustituto.
+
+Y hay un segundo coste que no es menor: al desaparecer `connect.Request[T]`
+desaparece `req.Header()`, que es de donde sale la sesión en **cada RPC de los
+diez servicios**. No es un ajuste de firmas, es reescribir la autorización.
+
+**Cuándo retomarlo:** cuando vanguard publique una versión compatible con
+connect v2. Entonces el orden es core (`pkg/api`, `pkg/server`,
+`interceptors`, `middlewares`, y el plugin
+`protoc-gen-backend-core-laperla-cli` que genera los clientes) y después los
+servicios. La alternativa —renunciar a REST y dejar sólo Connect— no es una
+decisión técnica: afecta a la app y a cualquier integración futura.
+
+Comprobado el 08/10/2026 generando con el plugin de v2 y leyendo el módulo.
+
 ## Docs
 
 README de este repo. Skills del workspace (si estás en `/home/jvillacorta/laperla`): `skills/laperla-data`, `skills/laperla-platform`.
