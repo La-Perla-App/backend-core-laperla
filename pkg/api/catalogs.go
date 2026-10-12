@@ -1,6 +1,9 @@
 package api
 
 import (
+	"errors"
+	"net/http"
+
 	"connectrpc.com/connect"
 )
 
@@ -92,3 +95,54 @@ const (
 	PlatformWeb     = "web"
 	PlatformUnknown = "unknown"
 )
+
+// ErrorMessageFor es el mensaje de un error que nadie nombró antes: el del
+// catálogo para su código (`invalid_request_data`, `not_found`…) y, si el
+// catálogo no lo tiene, el nombre del código Connect (`permission_denied`,
+// `failed_precondition`…). Sólo un fallo de verdad queda en
+// `internal_server_error`.
+//
+// Antes cualquier error sin mensaje explícito salía como
+// `internal_server_error`, también un 400 por falta de un parámetro: el
+// envoltorio REST decía «se rompió algo» cuando lo que había era una
+// petición mal hecha.
+func ErrorMessageFor(err error) string {
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) {
+		return ErrorMessages.InternalServerError
+	}
+	code := connectErr.Code()
+	if msg, ok := APIErrorCodesMessages[APIErrorCode(code)]; ok {
+		return msg
+	}
+	switch code {
+	case connect.CodeUnknown, connect.CodeDataLoss:
+		return ErrorMessages.InternalServerError
+	}
+	return code.String()
+}
+
+// ErrorMessageForHTTPStatus cubre los errores que no llegan a un handler —una
+// ruta que no existe, un cuerpo que no se puede leer— y por eso no pasan por
+// el interceptor: sólo queda el estado HTTP para nombrarlos.
+func ErrorMessageForHTTPStatus(status int) string {
+	switch {
+	case status == http.StatusBadRequest:
+		return ErrorMessages.InvalidRequestData
+	case status == http.StatusUnauthorized:
+		return ErrorMessages.Unauthorized
+	case status == http.StatusNotFound:
+		return ErrorMessages.NotFound
+	case status == http.StatusForbidden:
+		return connect.CodePermissionDenied.String()
+	case status == http.StatusConflict:
+		return ErrorMessages.AlreadyExists
+	case status == http.StatusPreconditionFailed:
+		return connect.CodeFailedPrecondition.String()
+	case status == http.StatusTooManyRequests:
+		return connect.CodeResourceExhausted.String()
+	case status >= 400 && status < 500:
+		return ErrorMessages.InvalidRequestData
+	}
+	return ErrorMessages.InternalServerError
+}

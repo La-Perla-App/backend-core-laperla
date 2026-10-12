@@ -20,6 +20,15 @@ Librería compartida de los backends Go de La Perla. **No es un microservicio de
 - Tag/release: los servicios consumen un **módulo publicado** (`v0.1.0+`). No asumas `replace` en repos remotos.
 - Humo Redis (Telepresence): `go test -tags smoke ./pkg/cache/`
 - Humo NATS (Telepresence): `SMOKE_NATS_URL=… go test -tags smoke ./pkg/broker/nats/` — crea y borra su propio stream; comprueba que una reentrega espera.
+- **El `message` de un error sale de su código, no se supone.** Si nadie lo
+  fijó (`UpdateResponseInfo*`), el interceptor usa `api.ErrorMessageFor`: el
+  nombre del catálogo (`invalid_request_data`, `not_found`…) o el del código
+  Connect (`permission_denied`…). Lo que no llega a un handler (ruta
+  inexistente, cuerpo ilegible) lo nombra el middleware REST por el estado
+  HTTP. Antes todo salía `internal_server_error`, también un 400 por un
+  parámetro que faltaba. Sólo afecta al envoltorio REST: por Connect,
+  `Response-Info` no viaja en los errores y el cliente recibe el mensaje del
+  handler tal cual.
 - No commitees secretos. Commits: La Perla, no marcas ajenas.
 
 ## Connect v1, y por qué todavía no v2

@@ -37,6 +37,11 @@ func (interceptor) intercept(ctx context.Context, header http.Header, nextWrappe
 			log.Println("handler context error: ", ctx.Err())
 		}
 		header.Set("Has-Error", "true")
+		// Sin mensaje explícito, el que corresponde a su código: si no,
+		// FillErrorInfo lo deja en internal_server_error aunque sea un 400.
+		if appInfo.Message == "" && err != nil {
+			appInfo.Message = api.ErrorMessageFor(err)
+		}
 		appInfo.FillErrorInfo()
 	} else {
 		appInfo.FillSuccessInfo()

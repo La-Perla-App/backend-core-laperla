@@ -166,6 +166,11 @@ func wrapJsonResponse(next http.HandlerFunc) http.HandlerFunc {
 
 			appInfo, _ := api.ResponseInfoFromHeaders(r.Header)
 			if hasError {
+				// Errores que no pasaron por un handler (ruta inexistente,
+				// cuerpo ilegible): sólo el estado HTTP dice qué fueron.
+				if appInfo.Message == "" && rw.statusCode >= 400 {
+					appInfo.Message = api.ErrorMessageForHTTPStatus(rw.statusCode)
+				}
 				appInfo.FillErrorInfo()
 			} else {
 				appInfo.FillSuccessInfo()
